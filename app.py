@@ -32,9 +32,19 @@ if not api_key:
 # Configure Gemini
 try:
     genai.configure(api_key=api_key)
-    # Model name updated to fix 404 error
+    
+    # Configuration for the model
+    generation_config = {
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "top_k": 64,
+        "max_output_tokens": 8192,
+    }
+
+    # Initialize Model - Using the standard stable version
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash-latest",
+        model_name="gemini-1.5-flash",
+        generation_config=generation_config,
         system_instruction=system_prompt
     )
 except Exception as e:
@@ -43,7 +53,6 @@ except Exception as e:
 
 # Display Chat History
 for message in st.session_state.messages:
-    # Streamlit requires role to be 'user' or 'assistant'
     role = "user" if message["role"] == "user" else "assistant"
     with st.chat_message(role):
         st.markdown(message["content"])
@@ -61,7 +70,7 @@ if user_input := st.chat_input("Apna jawab ya idea yahan likhein..."):
         full_response = ""
         
         try:
-            # History format conversion for Gemini
+            # History conversion
             chat_history = []
             for msg in st.session_state.messages[:-1]:
                 role = "user" if msg["role"] == "user" else "model"
