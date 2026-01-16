@@ -1,16 +1,16 @@
 import streamlit as st
-import openai
+import google.generativeai as genai
 from prompt_data import system_prompt
 
 # Page Configuration
 st.set_page_config(page_title="Filmycandy AI Showrunner", layout="wide")
 
-# Sidebar for API Key
+# Sidebar
 with st.sidebar:
     st.title("🎬 Filmycandy Setup")
-    api_key = st.text_input("Enter OpenAI API Key", type="password")
+    api_key = st.text_input("Enter Google Gemini API Key", type="password")
     st.markdown("---")
-    st.write("Production: Filmycandy Entertainment")
+    st.write("Powered by Google Gemini 1.5 Flash")
     
     # Reset Button
     if st.button("Reset Conversation"):
@@ -19,63 +19,64 @@ with st.sidebar:
 
 # Main App Title
 st.title("🎬 AI Showrunner: Haresh Jen Togani")
-st.markdown("### Professional OTT Content Architect")
 
-# Initialize Chat History
+# Initialize Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    # Add the System Prompt invisibly
-    st.session_state.messages.append({"role": "system", "content": system_prompt})
 
 # Check for API Key
 if not api_key:
-    st.warning("⚠️ Please enter your OpenAI API Key in the sidebar to start.")
+    st.warning("⚠️ Please enter your Google Gemini API Key to start.")
     st.stop()
 
-# Configure OpenAI Client
-client = openai.OpenAI(api_key=api_key)
+# Configure Gemini
+try:
+    genai.configure(api_key=api_key)
+    # Gemini 1.5 Flash model use kar rahe hain jo fast aur free tier mein hai
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        system_instruction=system_prompt
+    )
+except Exception as e:
+    st.error(f"Configuration Error: {e}")
+    st.stop()
 
-# Display Chat History (Excluding System Prompt)
+# Display Chat History
 for message in st.session_state.messages:
-    if message["role"] != "system":
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Streamlit requires role to be 'user' or 'assistant'
+    role = "user" if message["role"] == "user" else "assistant"
+    with st.chat_message(role):
+        st.markdown(message["content"])
 
 # User Input Logic
 if user_input := st.chat_input("Apna jawab ya idea yahan likhein..."):
-    # 1. User ka message dikhao
+    # 1. User message display
     with st.chat_message("user"):
         st.markdown(user_input)
-    
-    # 2. History mein add karo
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # 3. AI se response mango
+    # 2. Generate Response
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
         
         try:
-            # Call GPT-4o model (Powerful enough for your logic)
-            stream = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages
-                ],
-                stream=True,
-            )
+            # History format conversion for Gemini
+            chat_history = []
+            for msg in st.session_state.messages[:-1]:
+                role = "user" if msg["role"] == "user" else "model"
+                chat_history.append({"role": role, "parts": [msg["content"]]})
             
-            # Response stream karo (Typing effect)
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    full_response += chunk.choices[0].delta.content
+            chat = model.start_chat(history=chat_history)
+            response = chat.send_message(user_input, stream=True)
+            
+            for chunk in response:
+                if chunk.text:
+                    full_response += chunk.text
                     message_placeholder.markdown(full_response + "▌")
             
             message_placeholder.markdown(full_response)
-            
-            # 4. AI ka response history mein save karo
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.session_state.messages.append({"role": "model", "content": full_response})
             
         except Exception as e:
             st.error(f"Error: {str(e)}")
