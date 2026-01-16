@@ -32,9 +32,9 @@ if not api_key:
 # Configure Gemini
 try:
     genai.configure(api_key=api_key)
-    # Gemini 1.5 Flash model use kar rahe hain jo fast aur free tier mein hai
+    # Model name updated to fix 404 error
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-1.5-flash-latest",
         system_instruction=system_prompt
     )
 except Exception as e:
