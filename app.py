@@ -1,42 +1,91 @@
 import streamlit as st
 import google.generativeai as genai
-import importlib.metadata
+from prompt_data import system_prompt
 
-st.title("🛠️ System Check Mode")
+# Page Configuration
+st.set_page_config(page_title="Filmycandy AI Showrunner", layout="wide")
 
-# 1. Check Library Version (Isse pata chalega requirements.txt kaam kiya ya nahi)
-try:
-    version = importlib.metadata.version("google-generativeai")
-    st.write(f"📂 Installed Software Version: **{version}**")
+# Sidebar
+with st.sidebar:
+    st.title("🎬 Filmycandy Setup")
+    api_key = st.text_input("Enter Google Gemini API Key", type="password")
+    st.markdown("---")
+    st.write("Powered by Google Gemini 2.0 Flash (Latest)")
     
-    if version < "0.7.2":
-        st.error("❌ Version PURANA hai! requirements.txt file ka naam check karein.")
-    else:
-        st.success("✅ Version NAYA hai! Software updated hai.")
-except:
-    st.error("⚠️ Library hi nahi mili!")
+    # Reset Button
+    if st.button("Reset Conversation"):
+        st.session_state.messages = []
+        st.rerun()
 
-# 2. Check API Key & Models
-api_key = st.text_input("Apni Gemini API Key yahan daalein:", type="password")
+# Main App Title
+st.title("🎬 AI Showrunner: Haresh Jen Togani")
 
-if api_key:
-    try:
-        genai.configure(api_key=api_key)
-        st.write("🔍 Google se models ki list mangwa rahe hain...")
+# Initialize Session State
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Check for API Key
+if not api_key:
+    st.warning("⚠️ Please enter your Google Gemini API Key to start.")
+    st.stop()
+
+# Configure Gemini
+try:
+    genai.configure(api_key=api_key)
+    
+    # Configuration
+    generation_config = {
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+    }
+
+    # IMPORTANT: Using the model found in your list
+    model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        generation_config=generation_config,
+        system_instruction=system_prompt
+    )
+except Exception as e:
+    st.error(f"Configuration Error: {e}")
+    st.stop()
+
+# Display Chat History
+for message in st.session_state.messages:
+    role = "user" if message["role"] == "user" else "assistant"
+    with st.chat_message(role):
+        st.markdown(message["content"])
+
+# User Input Logic
+if user_input := st.chat_input("Apna jawab ya idea yahan likhein..."):
+    # 1. User message display
+    with st.chat_message("user"):
+        st.markdown(user_input)
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+    # 2. Generate Response
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
         
-        models = genai.list_models()
-        found = False
-        st.write("### Available Models for your Key:")
-        
-        for m in models:
-            st.write(f"- `{m.name}`")
-            if "flash" in m.name:
-                found = True
-        
-        if found:
-            st.success("🎉 'Flash' model available hai! Ab hum asli app chala sakte hain.")
-        else:
-            st.error("🚫 Aapki Key par 'Flash' model nahi dikh raha. Nayi Key leni pad sakti hai.")
+        try:
+            # History conversion
+            chat_history = []
+            for msg in st.session_state.messages[:-1]:
+                role = "user" if msg["role"] == "user" else "model"
+                chat_history.append({"role": role, "parts": [msg["content"]]})
             
-    except Exception as e:
-        st.error(f"Error: {e}")
+            chat = model.start_chat(history=chat_history)
+            response = chat.send_message(user_input, stream=True)
+            
+            for chunk in response:
+                if chunk.text:
+                    full_response += chunk.text
+                    message_placeholder.markdown(full_response + "▌")
+            
+            message_placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "model", "content": full_response})
+            
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
