@@ -10,7 +10,7 @@ with st.sidebar:
     st.title("🎬 Filmycandy Setup")
     api_key = st.text_input("Enter Google Gemini API Key", type="password")
     st.markdown("---")
-    st.write("Powered by Google Gemini 2.0 Flash (Latest)")
+    st.write("Powered by Google Gemini 1.5 Flash")
     
     # Reset Button
     if st.button("Reset Conversation"):
@@ -41,9 +41,9 @@ try:
         "max_output_tokens": 8192,
     }
 
-    # IMPORTANT: Using the model found in your list
+    # IMPORTANT: Ab software update ho gaya hai, toh yeh model pakka chalega
     model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
+        model_name="gemini-1.5-flash",
         generation_config=generation_config,
         system_instruction=system_prompt
     )
